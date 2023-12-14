@@ -1,0 +1,165 @@
+{
+  "2": {
+    "inputs": {
+      "vae_name": "diffusion_pytorch_model.safetensors"
+    },
+    "class_type": "VAELoader"
+  },
+  "3": {
+    "inputs": {
+      "text": "(Masterpiece, best quality:1.2), Hyper realistic, ultra detailed full body photograph of a woman with messy blond hair (pink highlights) wearing an off shoulder slim sweater, laughing out loud and dancing, sunlight fractal details, depth of field, detailed gorgeous face, natural body posture, captured with a 85mm lens, f4. 6, bokeh, ultra detailed, ultra accurate detailed, bokeh lighting, surrealism, ultra unreal engine, intricate, epic, freckles",
+      "clip": ["109", 1]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "6": {
+    "inputs": {
+      "text": "(bad quality, worst quality:1.2)",
+      "clip": ["109", 1]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "7": {
+    "inputs": {
+      "seed": 44444444,
+      "steps": 25,
+      "cfg": 7,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": ["93", 0],
+      "positive": ["3", 0],
+      "negative": ["6", 0],
+      "latent_image": ["100", 0]
+    },
+    "class_type": "KSampler"
+  },
+  "10": {
+    "inputs": {
+      "samples": ["7", 0],
+      "vae": ["109", 2]
+    },
+    "class_type": "VAEDecode"
+  },
+  "12": {
+    "inputs": {
+      "filename_prefix": "Images\\image",
+      "images": ["105", 0]
+    },
+    "class_type": "SaveImage"
+  },
+  "93": {
+    "inputs": {
+      "model_name": "motionModel_v01.ckpt",
+      "beta_schedule": "sqrt_linear (AnimateDiff)",
+      "motion_scale": 1,
+      "apply_v2_models_properly": false,
+      "model": ["109", 0],
+      "context_options": ["94", 0]
+    },
+    "class_type": "ADE_AnimateDiffLoaderWithContext"
+  },
+  "94": {
+    "inputs": {
+      "context_length": 16,
+      "context_stride": 1,
+      "context_overlap": 4,
+      "context_schedule": "uniform",
+      "closed_loop": true
+    },
+    "class_type": "ADE_AnimateDiffUniformContextOptions"
+  },
+  "100": {
+    "inputs": {
+      "width": 512,
+      "height": 512,
+      "batch_size": 50
+    },
+    "class_type": "ADE_EmptyLatentImageLarge"
+  },
+  "101": {
+    "inputs": {
+      "frame_rate": 8,
+      "loop_count": 0,
+      "filename_prefix": "girl",
+      "format": "video/h265-mp4",
+      "pingpong": false,
+      "save_image": true,
+      "crf": 20,
+      "save_metadata": true,
+      "audio_file": "",
+      "videopreview": {
+        "hidden": false,
+        "paused": false,
+        "params": {
+          "filename": "AnimateDiff_00003.gif",
+          "subfolder": "",
+          "type": "output",
+          "format": "image/gif"
+        }
+      },
+      "images": ["105", 0]
+    },
+    "class_type": "VHS_VideoCombine"
+  },
+  "105": {
+    "inputs": {
+      "upscale_by": 2,
+      "seed": 44444444,
+      "steps": 20,
+      "cfg": 10,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 0.3,
+      "mode_type": "Linear",
+      "tile_width": 512,
+      "tile_height": 512,
+      "mask_blur": 8,
+      "tile_padding": 32,
+      "seam_fix_mode": "None",
+      "seam_fix_denoise": 1,
+      "seam_fix_width": 64,
+      "seam_fix_mask_blur": 8,
+      "seam_fix_padding": 16,
+      "force_uniform_tiles": "enable",
+      "image": ["10", 0],
+      "model": ["109", 0],
+      "positive": ["107", 0],
+      "negative": ["107", 1],
+      "vae": ["109", 2],
+      "upscale_model": ["108", 0]
+    },
+    "class_type": "UltimateSDUpscale"
+  },
+  "106": {
+    "inputs": {
+      "control_net_name": "controlnet_tile_v1-5.bin"
+    },
+    "class_type": "ControlNetLoader"
+  },
+  "107": {
+    "inputs": {
+      "strength": 1,
+      "start_percent": 0,
+      "end_percent": 1,
+      "positive": ["3", 0],
+      "negative": ["6", 0],
+      "control_net": ["106", 0],
+      "image": ["10", 0]
+    },
+    "class_type": "ControlNetApplyAdvanced"
+  },
+  "108": {
+    "inputs": {
+      "model_name": "4xUltrasharp_4xUltrasharpV10.pt"
+    },
+    "class_type": "UpscaleModelLoader"
+  },
+  "109": {
+    "inputs": {
+      "ckpt_name": "dreamshaper_8.safetensors",
+      "beta_schedule": "sqrt_linear (AnimateDiff)"
+    },
+    "class_type": "CheckpointLoaderSimpleWithNoiseSelect"
+  }
+}

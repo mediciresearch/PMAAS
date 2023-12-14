@@ -1,0 +1,59 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 953483534016568,
+      "steps": 20,
+      "cfg": 8,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": ["4", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["5", 0]
+    },
+    "class_type": "KSampler"
+  },
+  "4": {
+    "inputs": {
+      "ckpt_name": "aimaginationEvolved_v10.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple"
+  },
+  "5": {
+    "inputs": {
+      "width": 512,
+      "height": 512,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage"
+  },
+  "6": {
+    "inputs": {
+      "text": "Cinematic still, Raw digital photo, Dutch angle shot of a woman, (art by Terry Gilliam:1.0) , double exposure, compact camera, 50mm, green screen background",
+      "clip": ["4", 1]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "7": {
+    "inputs": {
+      "text": "cropped-frame, imbalance, poor image quality, limited video, specialized creators, polymorphic, washed-out low-contrast (deep fried) watermark, cropped, out-of-frame, low quality, low res, poorly drawn",
+      "clip": ["4", 1]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "8": {
+    "inputs": {
+      "samples": ["3", 0],
+      "vae": ["4", 2]
+    },
+    "class_type": "VAEDecode"
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "ComfyUI_img",
+      "images": ["8", 0]
+    },
+    "class_type": "SaveImage"
+  }
+}
