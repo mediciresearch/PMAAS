@@ -1,4 +1,5 @@
 from openai import OpenAI
+import replicate
 import requests
 import subprocess
 import sys
@@ -6,7 +7,14 @@ from datetime import timedelta
 import os
 import whisper
 import pydub
+from dotenv import load_dotenv
+from urllib.parse import urlparse, unquote
 from comfy_ws_svd import execute_prompt
+from tqdm import tqdm
+import time
+from captionmaker import autocaption
+import youtube_upload
+import config
 # OpenAI API client
 client = OpenAI()
 
@@ -47,9 +55,29 @@ def generate_script(topic):
     response = client.chat.completions.create(
         model="gpt-4-1106-preview",
         messages=[{"role": "system", "content": "You are a helpful assistant."},
-                  {"role": "user", "content": f"Write an interesting and little-known fact about {topic}. Make it like a script where one person is doing a voiceover for a 60 second Youtube shorts video while providing detail but being concise. Phrase it as if you were talking in real life. Only return the full dialogue as a paragraph/paragraphs. Do not format your response like a script. Make sure it is concise enough that if read out loud it is around a minute long."}],
+                  {"role": "user", "content": f"Write an interesting and extremely unknown fact about {topic}. This should be a unique and obscure fact that is not commonly mentioned in history books or popular media. Make it like a formal informational script where one person is doing a voiceover for a 60 second Youtube shorts video while providing detail but being concise. Phrase it as if you were talking in real life. Only return the full dialogue as a paragraph/paragraphs. Do not format your response like a script. Make sure it is concise enough that if read out loud it is around a minute long."}],
     )
     print("Script \n", response.choices[0].message.content)
+    return response.choices[0].message.content
+
+
+def generate_title(script):
+    response = client.chat.completions.create(
+        model="gpt-4-1106-preview",
+        messages=[{"role": "system", "content": "You are a helpful assistant."},
+                  {"role": "user", "content": f"Create a clickbait Youtube short title based on the follow script: {script}"}],
+    )
+    print("Title \n", response.choices[0].message.content)
+    return response.choices[0].message.content
+
+
+def generate_description(script):
+    response = client.chat.completions.create(
+        model="gpt-4-1106-preview",
+        messages=[{"role": "system", "content": "You are a helpful assistant."},
+                  {"role": "user", "content": f"Create a interesting, concise, but detailed description for a Youtube short based on the following script: {script}"}],
+    )
+    print("Description \n", response.choices[0].message.content)
     return response.choices[0].message.content
 
 
@@ -218,7 +246,8 @@ def transcribe_audio(path, words_per_segment=5):
 
 
 def add_subtitles(video_file, voiceover_file, srt_file):
-    output_file = 'final_video.mp4'
+    timestamp = int(time.time())
+    output_file = f'final_video_{timestamp}.mp4'
     subprocess.run([
         'ffmpeg', '-y',  # Automatically overwrite existing files
         '-i', video_file,  # Input video file
@@ -231,17 +260,91 @@ def add_subtitles(video_file, voiceover_file, srt_file):
         output_file  # Output file
     ])
 
+    return output_file
+
+
+def download_mp4(self, url, download_folder, process_type):
+    """
+    Download an MP4 file from the given URL and save it with the same name in the specified download folder.
+
+    :param url: URL of the MP4 file to download.
+    :param download_folder: Folder where the MP4 file will be saved.
+    """
+    # Parse the URL to get the file name
+    parsed_url = urlparse(url)
+    file_name = os.path.basename(unquote(parsed_url.path))
+
+    # Full path for the file to be saved
+    file_path = os.path.join(download_folder, file_name)
+
+    response = requests.get(url, stream=True)
+
+    # Check if the request was successful
+    if response.status_code == 200:
+        with open(file_path, 'wb') as file:
+            for chunk in tqdm(response.iter_content(chunk_size=1024), desc="Downloading " + process_type, unit="KB"):
+                if chunk:  # filter out keep-alive chunks
+                    file.write(chunk)
+        print(f"File downloaded successfully: {file_path}")
+        return file_path
+    else:
+        print(
+            f"Failed to download file. Status code: {response.status_code}")
+
+
+def add_replicate_subtitles(video_path):
+    load_dotenv()  # This loads the variables from .env
+    os.environ["REPLICATE_API_TOKEN"] = os.getenv("REPLICATE_API_TOKEN")
+    if video_path.startswith('http://') or video_path.startswith('https://'):
+        video_path = video_path
+    else:
+        video_path = open(video_path, 'rb')
+        print("Video opened for replicate captions")
+    # print("Dense vid path", self.video_path)
+    print("Generating Captions  ...")
+    output = replicate.run(
+        "fictions-ai/autocaption:18a45ff0d95feb4449d192bbdc06b4a6df168fa33def76dfc51b78ae224b599b",
+        input={
+            "video_file_input": video_path,
+            "output_video": True,
+        }
+    )
+    if not isinstance(video_path, str):
+        video_path.close()
+    caption_video_path = download_mp4(
+        output, "./shorts", "Final Short Video")
+    return caption_video_path
+
+
+def upload_to_youtube(video_path, title, description):
+    # Upload the video to YouTube
+    config.youtube["title"] = title + " #shorts"
+    print("Config Title", config.youtube["title"])
+    config.youtube["description"] = description
+
+    print("Full config", config.youtube)
+    print("Uploading to Youtube...")
+    uploaded = youtube_upload.upload(video_path, config.youtube)
+
+    return uploaded
+
 
 def create_short(topic, voice_id):
     # Generate script
     script = generate_script(topic)
 
+    # Generate title
+    title = generate_title(script)
+
+    # Generate description
+    description = generate_description(script)
+
     # Generate image prompt and anime girl image
     image_prompt = generate_image_prompt(script)
 
-    anime_girl_video = generate_anime_girl_video(image_prompt)
+    # anime_girl_video = generate_anime_girl_video(image_prompt)
 
-    # anime_girl_video = "./test_anime_vid.mp4"
+    anime_girl_video = "./test_anime_vid.mp4"
 
     # Create voiceover
     if not create_voiceover(script, voice_id):
@@ -259,11 +362,33 @@ def create_short(topic, voice_id):
     print("Creating captions")
     srt_file = transcribe_audio(adjusted_voiceover)
 
+    # # Add Replicate Subtitles
+    # print("Adding Replicate Subtitles")
+    # caption_video_path = add_replicate_subtitles(looped_video)
+
+    # # Add autocaptions
+    # print("Add autocaptions")
+    # videofilename = looped_video  # Replace with your video file path
+    # v_type = "reels"  # Example, adjust as needed
+    # subs_position = "bottom75"  # Example, adjust as needed
+    # highlight_color = "yellow"  # Example, adjust as needed
+    # fontsize = 10.0  # Example, adjust as needed
+    # opacity = 0.5  # Example, adjust as needed
+    # MaxChars = 20  # Example, adjust as needed
+    # color = "white"  # Example, adjust as needed
+
+    # caption_video_path = autocaption.add_subtitle(
+    #     videofilename, adjusted_voiceover, v_type, subs_position, highlight_color, fontsize, opacity, MaxChars, color)
+    # print("Captioned video created at:", caption_video_path)
+
     # Add subtitles to video
     print("Combining video and audio")
-    add_subtitles(looped_video, adjusted_voiceover, srt_file)
+    final_video = add_subtitles(looped_video, adjusted_voiceover, srt_file)
 
     print("Short created successfully!")
+
+    print("Starting Youtube upload")
+    upload_to_youtube(final_video, title, description)
 
 
 # Example usage
